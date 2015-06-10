@@ -108,17 +108,7 @@ create or replace package body logger is
   level_priority      key_value;
 
 
-  -- private functions and procedures
-  function can_log_internal(
-    p_context    in varchar2,
-    p_log_level  in varchar2 
-  ) return boolean
-  is
-  begin
-    return (p_log_level = LOG_LEVEL_INTERNAL and p_context = LOGGER_CONTEXT);
-  end;
-  
-  
+  -- private functions and procedures  
   function loaded return boolean
   is
   begin
