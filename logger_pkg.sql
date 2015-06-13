@@ -118,6 +118,17 @@ create or replace package body logger is
       return true;
     end if;
   end;
+  
+  
+  function invalid_use_of_internal(
+    p_context    in varchar2,
+    p_log_level  in varchar2
+  ) return boolean
+  is
+  begin
+    return (p_log_level = LOG_LEVEL_INTERNAL and nvl(p_context, UNDEFINED) <> LOGGER_CONTEXT); 
+  end;
+  
 
   procedure set_logger_config(
     p_context   in varchar2,
@@ -224,11 +235,11 @@ create or replace package body logger is
     end if;
 
     begin
-      if p_log_level = LOG_LEVEL_INTERNAL and p_context <> LOGGER_CONTEXT then
+      if invalid_use_of_internal(p_log_level => p_log_level, p_context => p_context) then
         raise_application_error(-20000, 'Log context "'||p_context||'" is just for internal use of package!');
       end if;
     
-      if can_log(p_log_level, p_context) then
+      if can_log(p_log_level => p_log_level, p_context => p_context) then
         v_log_info   := get_log_info();
         v_call_stack := get_call_stack();
         v_parameters := to_string(p_parameters);
@@ -518,7 +529,7 @@ create or replace package body logger is
         p_scope       => v_scope
       );
       raise_application_error(-20000, 'Invalid log level!');
-    elsif p_log_level = LOG_LEVEL_INTERNAL and p_context <> LOGGER_CONTEXT then
+    elsif invalid_use_of_internal(p_log_level => p_log_level, p_context => p_context) then
       log_internal(
         p_message     => 'Invalid log level! "'||p_log_level||'" is just for internal use of package.',
         p_parameters  => v_parameters,
@@ -559,7 +570,7 @@ create or replace package body logger is
 
     for config in configs loop
       -- allow internal log level just for own package context
-      if config.config_value = LOG_LEVEL_INTERNAL and config.config_parameter <> LOGGER_CONTEXT then
+      if invalid_use_of_internal(p_log_level => config.config_value, p_context => config.config_parameter) then
         log_warn(
           p_message     => '"'||config.config_value||'" is just for internal use of package! Switch to log level "'||LOG_LEVEL_ERROR||'" for context "'||config.config_parameter||'"!',
           p_context     => LOGGER_CONTEXT,
