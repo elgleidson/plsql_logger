@@ -211,9 +211,9 @@ create or replace package body logger is
   begin
     return dbms_utility.format_call_stack;
   end;
-
-
-  procedure log(
+  
+  
+  procedure insert_log(
     p_log_level   in varchar2,
     p_message     in varchar2,
     p_parameters  in key_value default empty_key_value,
@@ -222,23 +222,22 @@ create or replace package body logger is
     p_group_id    in varchar2 default null
   )
   is
-    pragma autonomous_transaction;
     v_log_info            varchar2(500);
     v_call_stack          varchar2(4000);
     v_parameters          clob;
     v_except_parameters   key_value;
     v_message             varchar2(4000);
-    v_scope               varchar2(30) := 'log';
+    v_scope               varchar2(30) := 'insert_log';           
   begin
     if length(p_context) > 30 then
       raise_application_error(-20000, 'Log context must be 30 characters maximum!');
     end if;
-
-    begin
-      if invalid_use_of_internal(p_log_level => p_log_level, p_context => p_context) then
-        raise_application_error(-20000, 'Log context "'||p_context||'" is just for internal use of package!');
-      end if;
     
+    if invalid_use_of_internal(p_log_level => p_log_level, p_context => p_context) then
+      raise_application_error(-20000, 'Log level "'||p_log_level||'" is just for internal use of package!');
+    end if;
+    
+    begin
       if can_log(p_log_level => p_log_level, p_context => p_context) then
         v_log_info   := get_log_info();
         v_call_stack := get_call_stack();
@@ -265,8 +264,6 @@ create or replace package body logger is
           v_call_stack,
           v_log_info
         );
-
-        commit;
       end if;
     exception when others then
       v_message := sqlerrm;
@@ -301,16 +298,39 @@ create or replace package body logger is
         v_call_stack,
         v_log_info
       );
-
-      commit;
     end;
+  end;
+  
+  
+  procedure log(
+    p_log_level   in varchar2,
+    p_message     in varchar2,
+    p_parameters  in key_value default empty_key_value,
+    p_context     in varchar2 default null,
+    p_scope       in varchar2 default null,
+    p_group_id    in varchar2 default null,
+    p_internal    in boolean default false
+  )
+  is
+    pragma autonomous_transaction;
+    v_scope               varchar2(30) := 'log';
+  begin
+    insert_log(
+      p_log_level   => p_log_level,
+      p_message     => p_message,
+      p_parameters  => p_parameters,
+      p_context     => p_context,
+      p_scope       => p_scope,
+      p_group_id    => p_group_id
+    );
+    
+    commit;
   end;
 
 
   procedure log_internal(
     p_message     in varchar2,
     p_parameters  in key_value default empty_key_value,
-    p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
     p_group_id    in varchar2 default null
   ) is
@@ -319,7 +339,7 @@ create or replace package body logger is
       p_log_level   => LOG_LEVEL_INTERNAL,
       p_message     => p_message,
       p_parameters  => p_parameters,
-      p_context     => p_context,
+      p_context     => LOGGER_CONTEXT,
       p_scope       => p_scope,
       p_group_id    => p_group_id
     );
@@ -518,14 +538,12 @@ create or replace package body logger is
       log_internal(
         p_message     => 'Log level is null. Keeping the current log level "'||get_log_level(p_context)||'"!',
         p_parameters  => v_parameters,
-        p_context     => LOGGER_CONTEXT,
         p_scope       => v_scope
       );
     elsif not level_priority.exists(p_log_level) then
       log_internal(
         p_message     => 'Invalid log level!',
         p_parameters  => v_parameters,
-        p_context     => LOGGER_CONTEXT,
         p_scope       => v_scope
       );
       raise_application_error(-20000, 'Invalid log level!');
@@ -533,7 +551,6 @@ create or replace package body logger is
       log_internal(
         p_message     => 'Invalid log level! "'||p_log_level||'" is just for internal use of package.',
         p_parameters  => v_parameters,
-        p_context     => LOGGER_CONTEXT,
         p_scope       => v_scope
       );
       raise_application_error(-20000, 'Invalid log level! "'||p_log_level||'" is just for internal use of package.');
@@ -541,7 +558,6 @@ create or replace package body logger is
       log_internal(
         p_message     => 'Log level of context "'||nvl(p_context, UNDEFINED)||'" changed from "'||get_log_level(p_context)||'" to "'||p_log_level||'"!',
         p_parameters  => v_parameters,
-        p_context     => LOGGER_CONTEXT,
         p_scope       => v_scope
       );
 
@@ -564,7 +580,6 @@ create or replace package body logger is
 
     log_internal(
       p_message     => 'Loading logger configs...',
-      p_context     => LOGGER_CONTEXT,
       p_scope       => v_scope
     );
 
@@ -597,7 +612,6 @@ create or replace package body logger is
     log_internal(
       p_message     => 'Logger configs loaded',
       p_parameters  => v_parameters,
-      p_context     => LOGGER_CONTEXT,
       p_scope       => v_scope
     );
   end;

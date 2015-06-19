@@ -15,7 +15,7 @@ declare
     and log_message = v_message
     and log_level = p_log_level;
     
-    return (v_count = 1);
+    return (v_count > 0);
   end;
 begin
   /**** ALL ****/
@@ -313,5 +313,9 @@ begin
     raise_application_error(-20000, 'Fail to log '||logger.LOG_LEVEL_PERMANENT||' on '||v_log_level||'!');
   end if;
   
+  
+  v_log_level := logger.LOG_LEVEL_ALL;
+  logger.set_log_level(p_context => v_context, p_log_level => v_log_level);
+  execute immediate 'truncate table logger_logs';
 end;
 /
