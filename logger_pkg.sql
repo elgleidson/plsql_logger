@@ -42,7 +42,8 @@ create or replace package logger authid definer is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true 
   );
   
   procedure log_fatal(
@@ -50,7 +51,8 @@ create or replace package logger authid definer is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   );
 
   procedure log_error(
@@ -58,7 +60,8 @@ create or replace package logger authid definer is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   );
 
   procedure log_warn(
@@ -66,7 +69,8 @@ create or replace package logger authid definer is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   );
 
   procedure log_info(
@@ -74,7 +78,8 @@ create or replace package logger authid definer is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   );
 
   procedure log_debug(
@@ -82,7 +87,8 @@ create or replace package logger authid definer is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   );
 
   procedure load_configs;
@@ -326,23 +332,58 @@ create or replace package body logger is
     
     commit;
   end;
+  
+  
+  procedure log_transactional(
+    p_log_level   in varchar2,
+    p_message     in varchar2,
+    p_parameters  in key_value default empty_key_value,
+    p_context     in varchar2 default null,
+    p_scope       in varchar2 default null,
+    p_group_id    in varchar2 default null,
+    p_internal    in boolean default false
+  )
+  is
+    v_scope               varchar2(30) := 'log_transactional';
+  begin
+    insert_log(
+      p_log_level   => p_log_level,
+      p_message     => p_message,
+      p_parameters  => p_parameters,
+      p_context     => p_context,
+      p_scope       => p_scope,
+      p_group_id    => p_group_id
+    );
+  end;
 
 
   procedure log_internal(
     p_message     in varchar2,
     p_parameters  in key_value default empty_key_value,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   ) is
   begin
-    log(
-      p_log_level   => LOG_LEVEL_INTERNAL,
-      p_message     => p_message,
-      p_parameters  => p_parameters,
-      p_context     => LOGGER_CONTEXT,
-      p_scope       => p_scope,
-      p_group_id    => p_group_id
-    );
+    if p_auto_commit then
+      log(
+        p_log_level   => LOG_LEVEL_INTERNAL,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => LOGGER_CONTEXT,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    else
+      log_transactional(
+        p_log_level   => LOG_LEVEL_INTERNAL,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => LOGGER_CONTEXT,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    end if;
   end;
 
 
@@ -415,17 +456,29 @@ create or replace package body logger is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   ) is
   begin
-    log(
-      p_log_level   => LOG_LEVEL_PERMANENT,
-      p_message     => p_message,
-      p_parameters  => p_parameters,
-      p_context     => p_context,
-      p_scope       => p_scope,
-      p_group_id    => p_group_id
-    );
+    if p_auto_commit then
+      log(
+        p_log_level   => LOG_LEVEL_PERMANENT,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    else 
+      log_transactional(
+        p_log_level   => LOG_LEVEL_PERMANENT,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    end if;
   end;
   
   
@@ -434,17 +487,29 @@ create or replace package body logger is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   ) is
   begin
-    log(
-      p_log_level   => LOG_LEVEL_FATAL,
-      p_message     => p_message,
-      p_parameters  => p_parameters,
-      p_context     => p_context,
-      p_scope       => p_scope,
-      p_group_id    => p_group_id
-    );
+    if p_auto_commit then
+      log(
+        p_log_level   => LOG_LEVEL_FATAL,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    else
+      log_transactional(
+        p_log_level   => LOG_LEVEL_FATAL,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    end if;
   end;
 
 
@@ -453,17 +518,29 @@ create or replace package body logger is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   ) is
   begin
-    log(
-      p_log_level   => LOG_LEVEL_ERROR,
-      p_message     => p_message,
-      p_parameters  => p_parameters,
-      p_context     => p_context,
-      p_scope       => p_scope,
-      p_group_id    => p_group_id
-    );
+    if p_auto_commit then
+      log(
+        p_log_level   => LOG_LEVEL_ERROR,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    else
+      log_transactional(
+        p_log_level   => LOG_LEVEL_ERROR,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    end if;
   end;
 
 
@@ -472,17 +549,29 @@ create or replace package body logger is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   ) is
   begin
-    log(
-      p_log_level   => LOG_LEVEL_WARN,
-      p_message     => p_message,
-      p_parameters  => p_parameters,
-      p_context     => p_context,
-      p_scope       => p_scope,
-      p_group_id    => p_group_id
-    );
+    if p_auto_commit then
+      log(
+        p_log_level   => LOG_LEVEL_WARN,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    else
+      log_transactional(
+        p_log_level   => LOG_LEVEL_WARN,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    end if;
   end;
 
 
@@ -491,17 +580,29 @@ create or replace package body logger is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   ) is
   begin
-    log(
-      p_log_level   => LOG_LEVEL_INFO,
-      p_message     => p_message,
-      p_parameters  => p_parameters,
-      p_context     => p_context,
-      p_scope       => p_scope,
-      p_group_id    => p_group_id
-    );
+    if p_auto_commit then
+      log(
+        p_log_level   => LOG_LEVEL_INFO,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    else
+      log_transactional(
+        p_log_level   => LOG_LEVEL_INFO,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    end if;
   end;
 
 
@@ -510,17 +611,29 @@ create or replace package body logger is
     p_parameters  in key_value default empty_key_value,
     p_context     in varchar2 default null,
     p_scope       in varchar2 default null,
-    p_group_id    in varchar2 default null
+    p_group_id    in varchar2 default null,
+    p_auto_commit in boolean default true
   ) is
   begin
-    log(
-      p_log_level   => LOG_LEVEL_DEBUG,
-      p_message     => p_message,
-      p_parameters  => p_parameters,
-      p_context     => p_context,
-      p_scope       => p_scope,
-      p_group_id    => p_group_id
-    );
+    if p_auto_commit then
+      log(
+        p_log_level   => LOG_LEVEL_DEBUG,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    else
+      log_transactional(
+        p_log_level   => LOG_LEVEL_DEBUG,
+        p_message     => p_message,
+        p_parameters  => p_parameters,
+        p_context     => p_context,
+        p_scope       => p_scope,
+        p_group_id    => p_group_id
+      );
+    end if;
   end;
 
 
